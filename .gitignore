@@ -9,4 +9,6 @@ wheels/
 # Virtual environments
 .venv
 
-flipkart_reviews.csv
+data/flipkart_reviews.csv
+.env
+uv.lock

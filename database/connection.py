@@ -1,38 +1,17 @@
-"""
-database/connection.py
-=======================
-Centralised SQLAlchemy engine, session factory, and Base class.
-
-All other modules import from here — never create engines elsewhere.
-
-Environment variables (set in .env)
-------------------------------------
-    DATABASE_URL  postgresql://user:password@host:5432/dbname
-"""
-
 import logging
 import os
-
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-# ---------------------------------------------------------------------------
-# Logging
-# ---------------------------------------------------------------------------
-
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Load environment variables from .env (local dev only)
-# In production (Docker / cloud), these come from the environment directly.
-# ---------------------------------------------------------------------------
-
-load_dotenv()
-
-# ---------------------------------------------------------------------------
-# Database URL — never hardcode credentials here
-# ---------------------------------------------------------------------------
+# Attempt to load .env using UTF-8, fall back to UTF-16 if file has a BOM/UTF-16 encoding
+try:
+    load_dotenv(encoding='utf-8')
+except UnicodeDecodeError:
+    # Common when .env was saved as UTF-16; try that encoding as a fallback
+    load_dotenv(encoding='utf-16')
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -43,14 +22,6 @@ if not DATABASE_URL:
         "  DATABASE_URL=postgresql://postgres:yourpassword@localhost:5432/ecommerce_rag"
     )
 
-# ---------------------------------------------------------------------------
-# Engine
-#
-# pool_size      — number of persistent connections kept alive in the pool
-# max_overflow   — extra connections allowed during traffic bursts (beyond pool_size)
-# pool_pre_ping  — run "SELECT 1" before handing out a connection to detect
-#                  stale/dropped connections; prevents cryptic errors mid-request
-# ---------------------------------------------------------------------------
 
 engine = create_engine(
     DATABASE_URL,
@@ -59,36 +30,17 @@ engine = create_engine(
     pool_pre_ping=True,
 )
 
-# ---------------------------------------------------------------------------
-# Session factory
-#
-# autocommit=False  — transactions must be committed explicitly (safe default)
-# autoflush=False   — don't auto-flush before every query (gives more control)
-# ---------------------------------------------------------------------------
-
 SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
     bind=engine,
 )
 
-# ---------------------------------------------------------------------------
-# Declarative Base
-#
-# Using SQLAlchemy 2.0 class-based style.
-# All models in schemas.py inherit from this Base.
-# ---------------------------------------------------------------------------
 
 class Base(DeclarativeBase):
     pass
 
 
-# ---------------------------------------------------------------------------
-# Startup connection check
-#
-# Call this once when the app / pipeline starts to fail fast if the DB
-# is unreachable, rather than getting a cryptic error mid-query.
-# ---------------------------------------------------------------------------
 
 def verify_connection() -> None:
     """
@@ -104,18 +56,6 @@ def verify_connection() -> None:
         raise
 
 
-# ---------------------------------------------------------------------------
-# FastAPI dependency
-#
-# Use this as a dependency in your route functions:
-#
-#   from database.connection import get_db
-#   from sqlalchemy.orm import Session
-#
-#   @app.get("/products")
-#   def list_products(db: Session = Depends(get_db)):
-#       ...
-# ---------------------------------------------------------------------------
 
 def get_db():
     """
