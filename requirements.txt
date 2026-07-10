@@ -4,3 +4,5 @@ psycopg2-binary==2.9.9
 transformers==4.38.2
 torch==2.2.1
 python-dotenv
+qdrant-client
+sentence-transformers

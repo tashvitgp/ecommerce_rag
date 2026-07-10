@@ -100,8 +100,8 @@ def get_classifier():
         from transformers import pipeline
         _classifier = pipeline(
             "zero-shot-classification",
-            model="cross-encoder/nli-miniLM-L6-v2",
-            device=-1,      # -1 = CPU; change to 0 for GPU if available
+            model="MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli",
+            device=-1,     
         )
         logger.info("✓ Model loaded")
     return _classifier
