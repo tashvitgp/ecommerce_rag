@@ -14,3 +14,4 @@ data/flipkart_reviews.csv
 uv.lock
 qdrant_storage/
 test_search.py
+bm25_vocab.json

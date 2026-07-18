@@ -1,3 +1,4 @@
+
 import argparse
 import json
 import logging
@@ -245,6 +246,43 @@ def load_reviews_from_postgres() -> list[dict]:
 
 
 
+def deduplicate_reviews(reviews: list[dict]) -> list[dict]:
+    """
+    Drop duplicate reviews that appear across color/size/variant SKUs of the
+    same underlying product listing (common in scraped e-commerce data —
+    the exact same review text gets attached to every variant's product_id).
+
+    Dedup key: cleaned_text (falls back to review_text). Keeps the FIRST
+    occurrence encountered (query is ordered by review_id, so this is stable).
+
+    This runs before embedding/indexing so duplicate points never enter
+    Qdrant — cleaner retrieval results and no wasted embedding compute.
+    """
+    seen: set[str] = set()
+    deduped = []
+    dropped = 0
+
+    for r in reviews:
+        key = (r.get("cleaned_text") or r.get("review_text") or "").strip().lower()
+        if not key:
+            deduped.append(r)  # keep rows with no text, nothing to dedupe on
+            continue
+        if key in seen:
+            dropped += 1
+            continue
+        seen.add(key)
+        deduped.append(r)
+
+    if dropped:
+        logger.info(
+            f"✓ Deduplicated reviews: dropped {dropped:,} duplicate(s) "
+            f"across product variants — {len(deduped):,} unique reviews remain "
+            f"(was {len(reviews):,})"
+        )
+
+    return deduped
+
+
 def build_index() -> None:
 
 
@@ -252,6 +290,8 @@ def build_index() -> None:
     if not reviews:
         logger.error("No enriched reviews found. Run step2_enrich_aspects2.py first.")
         return
+
+    reviews = deduplicate_reviews(reviews)
 
     total = len(reviews)
 
