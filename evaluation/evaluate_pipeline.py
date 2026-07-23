@@ -254,14 +254,31 @@ import functools
 import json
 import logging
 import os
+import sys
+import types
 from datetime import datetime
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+try:
+    from langchain_google_vertexai import ChatVertexAI
+except Exception:  # pragma: no cover - fallback for environments without VertexAI support
+    class ChatVertexAI:  # type: ignore[no-redef]
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError("VertexAI support is unavailable in this environment")
+
+vertexai_module = types.ModuleType("langchain_community.chat_models.vertexai")
+vertexai_module.ChatVertexAI = ChatVertexAI
+sys.modules.setdefault("langchain_community.chat_models.vertexai", vertexai_module)
 
 from dotenv import load_dotenv
 from datasets import Dataset
 from langchain_groq import ChatGroq
 from ragas import evaluate
 from ragas.llms import LangchainLLMWrapper
-from ragas.embeddings import HuggingfaceEmbeddings
+from ragas.embeddings.base import BaseRagasEmbeddings
 from ragas.metrics import (
     faithfulness,
     answer_relevancy,
@@ -272,14 +289,35 @@ from ragas.metrics import (
 # RAGAS defaults to OpenAI for its LLM-judge metrics (faithfulness,
 # answer_relevancy, context_precision, context_recall). Point it at Groq
 # instead so no OpenAI key is needed, matching the rest of this project.
-RAGAS_JUDGE_MODEL = "llama-3.3-70b-versatile"  # larger model — judging quality matters here
+RAGAS_JUDGE_MODEL = "llama-3.1-8b-instant" # larger model — judging quality matters here
 _ragas_llm = LangchainLLMWrapper(ChatGroq(model=RAGAS_JUDGE_MODEL, temperature=0))
 
 # answer_relevancy also needs an embedding model to compare semantic
 # similarity between generated questions and the original — reuse the same
 # local embedding model already used elsewhere in the project (no API key
 # or extra cost).
-_ragas_embeddings = HuggingfaceEmbeddings(model_name="all-MiniLM-L6-v2")
+class LocalSentenceTransformerEmbeddings(BaseRagasEmbeddings):
+    def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
+        super().__init__()
+        from sentence_transformers import SentenceTransformer
+
+        self.model = SentenceTransformer(model_name)
+
+    def embed_query(self, text: str) -> list[float]:
+        return self.embed_documents([text])[0]
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        embeddings = self.model.encode(texts, normalize_embeddings=True, convert_to_tensor=False)
+        return embeddings.tolist()
+
+    async def aembed_query(self, text: str) -> list[float]:
+        return self.embed_query(text)
+
+    async def aembed_documents(self, texts: list[str]) -> list[list[float]]:
+        return self.embed_documents(texts)
+
+
+_ragas_embeddings = LocalSentenceTransformerEmbeddings()
 
 for metric in (faithfulness, answer_relevancy, context_precision, context_recall):
     metric.llm = _ragas_llm
