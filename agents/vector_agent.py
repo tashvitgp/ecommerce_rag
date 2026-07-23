@@ -60,10 +60,10 @@ Use null if the query doesn't clearly match any known value — do not guess.
 
 def run_vector_agent(
     query: str,
-    top_k: int = 5,
+    top_k: int = 8,
     use_query_expansion: bool = True,
     use_reranking: bool = True,
-    retrieve_pool_size: int = 15,
+    retrieve_pool_size: int = 30,
 ) -> dict:
     """
     Full vector agent flow:
