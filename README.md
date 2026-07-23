@@ -19,37 +19,10 @@ search agent, or both — then synthesizing a grounded answer with citations.
 
 ## Architecture
 
-![Agentic RAG architecture](architecture-diagram.svg)
 
-```
-User query
-    │
-    ▼
-┌─────────┐
-│ router  │  Groq LLM classifies query into: sql | vector | hybrid
-└────┬────┘
-     │
-     ├── sql ──────► sql_agent ──────────────────────┐
-     │               (Groq generates SQL,             │
-     │                validated, executed              │
-     │                against Postgres)                │
-     │                                                  │
-     ├── vector ───► vector_agent ────────────────────►│
-     │               (intent extraction → query         │
-     │                expansion → hybrid dense+sparse    │
-     │                search → RRF fusion → rerank)      │
-     │                                                  │
-     └── hybrid ───► sql_agent + vector_agent ──────────┤
-                                                          ▼
-                                                    ┌───────────┐
-                                                    │ generator │  Groq synthesizes
-                                                    └─────┬─────┘  grounded answer
-                                                          │
-                                                          ▼
-                                                    ┌───────────┐
-                                                    │  logger   │  writes to query_logs
-                                                    └───────────┘
-```
+<img width="1474" height="785" alt="image" src="https://github.com/user-attachments/assets/f2200c8e-af63-4bf9-8141-579c6ecee275" />
+
+
 
 The graph itself (routing, conditional branching, node sequencing) is built with **LangGraph**.
 Every node's internal logic (SQL generation, embedding, reranking, etc.) is plain Python —
@@ -57,7 +30,8 @@ LangGraph only owns orchestration, not the actual retrieval/generation logic.
 
 ### Hybrid retrieval pipeline
 
-![Hybrid retrieval pipeline](retrieval-pipeline-diagram.svg)
+<img width="1457" height="500" alt="image" src="https://github.com/user-attachments/assets/b420b5cb-2624-4740-9167-ae640eac60cd" />
+
 
 The vector route runs each query through multi-query expansion (3 Groq-generated paraphrases
 + the original), searches all 4 variants against both dense and sparse Qdrant vector spaces,
