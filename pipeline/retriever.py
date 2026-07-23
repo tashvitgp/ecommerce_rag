@@ -15,11 +15,17 @@ COLLECTION_NAME = os.getenv("COLLECTION_NAME", "product_reviews")
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 BM25_VOCAB_PATH = os.getenv("BM25_VOCAB_PATH", "bm25_vocab.json")
 
-qdrant = QdrantClient(path=QDRANT_PATH)
-
+_qdrant_client: Optional[QdrantClient] = None
 _embed_model: Optional[SentenceTransformer] = None
 _vocab: Optional[dict] = None
 _idf: Optional[dict] = None
+
+
+def get_qdrant_client() -> QdrantClient:
+    global _qdrant_client
+    if _qdrant_client is None:
+        _qdrant_client = QdrantClient(path=QDRANT_PATH)
+    return _qdrant_client
 
 
 def get_embed_model() -> SentenceTransformer:
@@ -115,6 +121,8 @@ def hybrid_search(
     embed_model = get_embed_model()
     dense_vec = embed_model.encode(query, normalize_embeddings=True).tolist()
     sparse_vec = build_query_sparse_vector(query)
+
+    qdrant = get_qdrant_client()
 
     # For dense search
     dense_results = qdrant.query_points(

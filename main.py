@@ -3,7 +3,7 @@ import os
 import time
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -68,29 +68,37 @@ def health_check():
     return HealthResponse(status="ok", version=app.version)
 
 
-@app.post("/query", response_model=QueryResponse)
-def query(request: QueryRequest):
-    """
-    Run a natural language query through the full agentic pipeline:
-    router -> sql_agent / vector_agent / both -> generator -> logger.
-    """
+def _run_query(text: str) -> QueryResponse:
     start = time.time()
 
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="Query text is required")
+
     try:
-        result = run_pipeline(request.query)
+        result = run_pipeline(text)
     except Exception as e:
-        logger.error(f"Pipeline failed for query '{request.query}': {e}")
+        logger.error(f"Pipeline failed for query '{text}': {e}")
         raise HTTPException(status_code=500, detail=f"Pipeline error: {e}")
 
     latency_ms = int((time.time() - start) * 1000)
 
     return QueryResponse(
-        query=request.query,
+        query=text,
         answer=result["answer"],
         route=result["route"],
         sources=[SourceItem(**s) for s in (result.get("sources") or [])],
         latency_ms=latency_ms,
     )
+
+
+@app.get("/query", response_model=QueryResponse)
+def query_get(query_text: str = Query(..., max_length=500)):
+    return _run_query(query_text)
+
+
+@app.post("/query", response_model=QueryResponse)
+def query_post(request: QueryRequest):
+    return _run_query(request.query)
 
 
 if __name__ == "__main__":

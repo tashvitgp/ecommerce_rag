@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ledger — product review query console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #EDE8DE;
+    --card: #FAF7F0;
+    --ink: #211B14;
+    --ink-soft: #6B6255;
+    --rule: #C9C0AF;
+    --rule-strong: #A89E8C;
+
+    --sql-fill: #E4EEF3;
+    --sql-ink: #2F5D7A;
+    --vector-fill: #F3E7DD;
+    --vector-ink: #8A4B2F;
+    --hybrid-fill: #EAEEDD;
+    --hybrid-ink: #55702F;
+    --off: #DFD9CC;
+    --off-ink: #9A917F;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+  }
+
+  .wrap{
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 56px 24px 80px;
+  }
+
+  .eyebrow{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 10px;
+  }
+
+  h1{
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 40px;
+    line-height: 1.1;
+    margin: 0 0 12px;
+    letter-spacing: -0.01em;
+  }
+
+  .sub{
+    font-size: 15px;
+    color: var(--ink-soft);
+    margin: 0 0 36px;
+    max-width: 520px;
+    line-height: 1.55;
+  }
+
+  .search-row{
+    display: flex;
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+
+  input[type="text"]{
+    flex: 1;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    padding: 14px 16px;
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    color: var(--ink);
+    outline: none;
+  }
+  input[type="text"]:focus{
+    border-color: var(--ink);
+  }
+  input[type="text"]::placeholder{
+    color: var(--off-ink);
+  }
+
+  button{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 0.03em;
+    padding: 14px 22px;
+    background: var(--ink);
+    color: var(--paper);
+    border: 1px solid var(--ink);
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  button:hover{ background: #3A3122; }
+  button:disabled{ opacity: 0.5; cursor: default; }
+
+  .examples{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 40px;
+  }
+  .ex-chip{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    padding: 6px 12px;
+    background: transparent;
+    border: 1px solid var(--rule);
+    color: var(--ink-soft);
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .ex-chip:hover{ border-color: var(--ink); color: var(--ink); }
+
+  .trace{
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 28px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+  }
+  .node{
+    padding: 7px 13px;
+    border: 1px solid var(--off);
+    color: var(--off-ink);
+    background: var(--card);
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .node.active{
+    border-color: currentColor;
+    font-weight: 500;
+  }
+  .node.sql.active{ color: var(--sql-ink); background: var(--sql-fill); }
+  .node.vector.active{ color: var(--vector-ink); background: var(--vector-fill); }
+  .node.hybrid.active{ color: var(--hybrid-ink); background: var(--hybrid-fill); }
+  .node.gen.active{ color: var(--ink); background: var(--card); border-color: var(--ink); }
+  .arrow{
+    color: var(--rule-strong);
+    padding: 0 6px;
+    font-size: 13px;
+  }
+
+  .status-line{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-bottom: 18px;
+    display: none;
+  }
+  .status-line.show{ display: block; }
+
+  .answer-card{
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 26px 28px;
+    margin-bottom: 28px;
+    display: none;
+  }
+  .answer-card.show{ display: block; }
+  .answer-label{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 12px;
+  }
+  .answer-text{
+    font-family: 'Fraunces', serif;
+    font-size: 19px;
+    line-height: 1.55;
+    margin: 0;
+  }
+
+  .sources-label{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 14px;
+    display: none;
+  }
+  .sources-label.show{ display: block; }
+
+  .sources{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .source-card{
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--rule-strong);
+    border-radius: 0 3px 3px 0;
+    padding: 14px 18px;
+  }
+  .source-top{
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .source-name{
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .source-rating{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  .source-quote{
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .error-box{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: #7A2B1E;
+    background: #F5E3DC;
+    border: 1px solid #D6A48F;
+    border-radius: 3px;
+    padding: 14px 18px;
+    display: none;
+  }
+  .error-box.show{ display: block; }
+
+  .config-row{
+    margin-top: 48px;
+    padding-top: 18px;
+    border-top: 1px solid var(--rule);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .config-row label{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+  .config-row input[type="text"]{
+    font-size: 12px;
+    padding: 7px 10px;
+    max-width: 260px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="eyebrow">query console — 001</p>
+  <h1>Ask the reviews.</h1>
+  <p class="sub">Every question here is routed to a SQL lookup, a semantic search over real customer reviews, or both — watch the trace below to see which path your question took.</p>
+
+  <div class="search-row">
+    <input type="text" id="query-input" placeholder="best earphone for battery life under 2000" autocomplete="off">
+    <button id="ask-btn">Ask</button>
+  </div>
+
+  <div class="examples" id="examples"></div>
+
+  <div class="trace" id="trace" style="display:none;">
+    <span class="node" data-node="router">router</span>
+    <span class="arrow">→</span>
+    <span class="node" data-node="sql">sql_agent</span>
+    <span class="arrow">→</span>
+    <span class="node" data-node="vector">vector_agent</span>
+    <span class="arrow">→</span>
+    <span class="node gen" data-node="gen">generator</span>
+  </div>
+
+  <p class="status-line" id="status-line"></p>
+
+  <div class="error-box" id="error-box"></div>
+
+  <div class="answer-card" id="answer-card">
+    <p class="answer-label">answer</p>
+    <p class="answer-text" id="answer-text"></p>
+  </div>
+
+  <p class="sources-label" id="sources-label">cited reviews</p>
+  <div class="sources" id="sources"></div>
+
+  <div class="config-row">
+    <label for="api-base">api base</label>
+    <input type="text" id="api-base" value="http://127.0.0.1:8000">
+  </div>
+
+</div>
+
+<script>
+  const examples = [
+    "best earphone for battery life under 2000",
+    "average rating of Boat earphones",
+    "does this laptop have a 144Hz display",
+    "is the boAt Rockerz 510 good quality"
+  ];
+
+  const examplesEl = document.getElementById('examples');
+  examples.forEach(ex => {
+    const chip = document.createElement('button');
+    chip.className = 'ex-chip';
+    chip.textContent = ex;
+    chip.onclick = () => { document.getElementById('query-input').value = ex; runQuery(); };
+    examplesEl.appendChild(chip);
+  });
+
+  const input = document.getElementById('query-input');
+  const askBtn = document.getElementById('ask-btn');
+  const traceEl = document.getElementById('trace');
+  const statusLine = document.getElementById('status-line');
+  const errorBox = document.getElementById('error-box');
+  const answerCard = document.getElementById('answer-card');
+  const answerText = document.getElementById('answer-text');
+  const sourcesLabel = document.getElementById('sources-label');
+  const sourcesEl = document.getElementById('sources');
+
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') runQuery(); });
+  askBtn.addEventListener('click', runQuery);
+
+  function resetView(){
+    errorBox.classList.remove('show');
+    answerCard.classList.remove('show');
+    sourcesLabel.classList.remove('show');
+    sourcesEl.innerHTML = '';
+    statusLine.classList.remove('show');
+    traceEl.querySelectorAll('.node').forEach(n => n.classList.remove('active'));
+  }
+
+  function highlightTrace(route){
+    traceEl.style.display = 'flex';
+    const router = traceEl.querySelector('[data-node="router"]');
+    router.classList.add('active');
+
+    const sqlNode = traceEl.querySelector('[data-node="sql"]');
+    const vectorNode = traceEl.querySelector('[data-node="vector"]');
+    const genNode = traceEl.querySelector('[data-node="gen"]');
+
+    if (route === 'sql') sqlNode.classList.add('sql', 'active');
+    if (route === 'vector') vectorNode.classList.add('vector', 'active');
+    if (route === 'hybrid') {
+      sqlNode.classList.add('hybrid', 'active');
+      vectorNode.classList.add('hybrid', 'active');
+    }
+    genNode.classList.add('active');
+  }
+
+  async function runQuery(){
+    const q = input.value.trim();
+    if (!q) return;
+
+    resetView();
+    askBtn.disabled = true;
+    askBtn.textContent = 'thinking…';
+    statusLine.textContent = 'sending query…';
+    statusLine.classList.add('show');
+
+    const base = document.getElementById('api-base').value.trim().replace(/\/$/, '');
+
+    try{
+      const res = await fetch(`${base}/query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: q })
+      });
+
+      if (!res.ok){
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail || `Request failed (${res.status})`);
+      }
+
+      const data = await res.json();
+
+      highlightTrace(data.route);
+      statusLine.textContent = `route: ${data.route} · ${data.latency_ms}ms`;
+
+      answerText.textContent = data.answer;
+      answerCard.classList.add('show');
+
+      if (data.sources && data.sources.length){
+        sourcesLabel.classList.add('show');
+        data.sources.forEach(s => {
+          const card = document.createElement('div');
+          card.className = 'source-card';
+          const rating = (s.rating !== null && s.rating !== undefined) ? `${s.rating}★` : '';
+          card.innerHTML = `
+            <div class="source-top">
+              <span class="source-name">${escapeHtml(s.product_name || 'Unknown product')}</span>
+              <span class="source-rating">${rating}</span>
+            </div>
+            <p class="source-quote">${escapeHtml(s.review_summary || '')}</p>
+          `;
+          sourcesEl.appendChild(card);
+        });
+      }
+
+    } catch(err){
+      statusLine.classList.remove('show');
+      errorBox.textContent = `Couldn't reach the pipeline. ${err.message}`;
+      errorBox.classList.add('show');
+    } finally{
+      askBtn.disabled = false;
+      askBtn.textContent = 'Ask';
+    }
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+</script>
+</body>
+</html>
